@@ -2,10 +2,7 @@
 
 package org.glavo.bot.data
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.content
-import kotlinx.serialization.json.long
+import kotlinx.serialization.json.*
 import java.net.NetworkInterface
 import java.nio.charset.StandardCharsets
 import java.util.*
@@ -18,22 +15,21 @@ object Config {
             System.err.println("Config.json 缺失")
             exitProcess(-1)
         }
-        @Suppress("EXPERIMENTAL_API_USAGE")
-        Json.parseJson(cj.readText()).jsonObject
+        Json.parseToJsonElement(cj.readText()).jsonObject
     }
 
-    val qq = config["qq"]!!.long
+    val qq = config["qq"]!!.jsonPrimitive.long
 
     val password: String
-        get() = String(Base64.getDecoder().decode(config["password"]!!.content), StandardCharsets.UTF_8)
+        get() = String(Base64.getDecoder().decode(config["password"]!!.jsonPrimitive.content), StandardCharsets.UTF_8)
 
-    val rconPassword = config["rconPassword"]!!.content
+    val rconPassword = config["rconPassword"]!!.jsonPrimitive.content
 
-    val MainGroupID = config["MainGroupID"]!!.long
-    val CommandGroupID = config["CommandGroupID"]!!.long
+    val MainGroupID = config["MainGroupID"]!!.jsonPrimitive.long
+    val CommandGroupID = config["CommandGroupID"]!!.jsonPrimitive.long
 
     val ServerIP: String = run {
-        val iip = config["IntranetIP"]!!.content
+        val iip = config["IntranetIP"]!!.jsonPrimitive.content
         for (networkInterface in NetworkInterface.getNetworkInterfaces()) {
             for (interfaceAddress in networkInterface.interfaceAddresses) {
                 if (interfaceAddress.address.hostAddress == iip) {
@@ -44,9 +40,9 @@ object Config {
         iip
     }
 
-    val ServerDomain: String = config["ServerDomain"]!!.content
+    val ServerDomain: String = config["ServerDomain"]!!.jsonPrimitive.content
 
-    val Post: String = config["Post"]!!.content
+    val Post: String = config["Post"]!!.jsonPrimitive.content
 
     val isOnMCServer = ServerIP == "127.0.0.1"
 }

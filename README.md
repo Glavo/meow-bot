@@ -1,7 +1,7 @@
 # 喵呜呜二号
 
 喵呜的窝服务器 QQ 群助手，使用 [mirai](https://github.com/mamoe/mirai) 与 QQ 通信，
-遵循 [GNU AFFERO GENERAL PUBLIC LICENSE version 3 with Mamoe Exceptions ](https://github.com/mamoe/mirai) 协议开源。
+遵循 [GNU AFFERO GENERAL PUBLIC LICENSE version 3 ](https://github.com/mamoe/mirai/blob/master/LICENSE) 协议开源。
 
 喵呜呜二号本身只为喵呜的窝服务器开发，并未特意简化配置方式，但通过很简单修改应该能够轻松的在自己的服务器中使用。
 
@@ -15,6 +15,7 @@
 
 喵呜呜二号会在群中识别一系列指令并执行，当前支持的指令有：
 
+  * `help`: 发送本项目的 Gitee 仓库地址
   * `#ip`: 显示服务器当前 IP 地址
   * `#list`: 显示当前服务器玩家在线列表
   * `#whitelist <玩家名称>`: 将用户添加到服务器白名单中（需要 3 级权限）

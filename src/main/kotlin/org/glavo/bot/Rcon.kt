@@ -2,7 +2,9 @@ package org.glavo.bot
 
 import org.glavo.bot.data.Config
 import org.glavo.rcon.Rcon
+import org.intellij.lang.annotations.Language
 import java.io.IOException
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 private var rcon: Rcon? = null
@@ -112,3 +114,31 @@ fun evalCommands(vararg commands: String): String {
 
     return commands.joinToString("\n ") { evalCommand(it) }
 }
+
+
+/*
+private val translators: List<Pair<Pattern, (Matcher) -> String>> = listOf(
+    Pattern.compile("^Incorrect argument for command(?<command>.*)<--\\[HERE]$") to {
+        "错误的命令参数：${it.group("command")} <--此处"
+    },
+    Pattern.compile("^Unknown or incomplete command, see below for error(?<command>.*)<--\\[HERE]$") to {
+        "未知或不完整的命令：${it.group("command")}"
+    },
+    Pattern.compile("^There are (?<num>[0-9]+) of a max of ([0-9]+) players online: (?<list>[^, ]+(, [^, ]+)*)?") to {
+        when (val n = it.group("num")) {
+            "0" -> "当前没有玩家在服务器中"
+            else ->
+                it.group("list")
+                    .split(',')
+                    .joinToString("\n", "当前有 $n 个玩家在服务器中：\n") { p -> "   " + p.trim() }
+
+        }
+    },
+    Pattern.compile("^Gamerule (?<name>\\p{Alpha}+) is currently set to: (?<value>.+)$") to {
+        "游戏规则 ${it.group("name")} 目前为 ${it.group("value")}"
+    },
+    Pattern.compile("^Gamerule (?<name>\\p{Alpha}+) is now set to: (?<value>.+)$") to {
+        "游戏规则 ${it.group("name")} 被设置为 ${it.group("value")}"
+    }
+)
+*/

@@ -108,22 +108,22 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
     }),
     Live("#live", action = {
         MainGroup.sendMessage("服务器开始直播了：https://live.bilibili.com/331537")
-        evalCommand("tellraw @a " + kotlinx.serialization.json.jsonArray {
-            +json {
-                "text" to ""
-                "color" to "gray"
+        evalCommand("tellraw @a " + buildJsonArray {
+            addJsonObject {
+                put("text", "")
+                put("color", "gray")
             }
 
-            +"服务器开始直播了，"
-            +json {
-                "text" to "点击这里进入直播间"
-                "underlined" to true
-                "clickEvent" to kotlinx.serialization.json.json {
-                    "action" to "open_url"
-                    "value" to "https://live.bilibili.com/331537"
+            add("服务器开始直播了，")
+            addJsonObject {
+                put("text", "点击这里进入直播间")
+                put("underlined", true)
+                putJsonObject("clickEvent") {
+                    put("action", "open_url")
+                    put("value", "https://live.bilibili.com/331537")
                 }
             }
-            +"。"
+            add("。")
         })
     }),
     Spectate(level = 1) {
@@ -216,7 +216,7 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
                                 if (rmSpace) {
                                     if (m.content.startsWith(' ')) {
                                         if (m.content.length > 1) {
-                                            tem += m.content.substring(1).toMessage()
+                                            tem += PlainText(m.content.substring(1))
                                         }
                                     } else {
                                         tem += m
@@ -254,20 +254,20 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
                     "@$it"
                 }
             }
-            tem += json {
-                "text" to ""
-                "color" to "gray"
+            tem += buildJsonObject {
+                put("text", "")
+                put("color", "gray")
             }
-            tem += json {
-                "text" to "<$playerName>"
-                "hoverEvent" to json {
-                    "action" to "show_text"
-                    "contents" to card
+            tem += buildJsonObject {
+                put("text", "<$playerName>")
+                putJsonObject("hoverEvent") {
+                    put("action", "show_text")
+                    put("contents", card)
                 }
-                "insertion" to atCommand
-                "clickEvent" to json {
-                    "action" to "suggest_command"
-                    "value" to atCommand
+                put("insertion", atCommand)
+                putJsonObject("clickEvent") {
+                    put("action", "suggest_command")
+                    put("value", atCommand)
                 }
             }
             tem += JsonPrimitive(" ")
@@ -281,15 +281,15 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
                         if (rmPre) {
                             if (c.startsWith('>') || c.startsWith('＞')) {
                                 if (c.length > 1) {
-                                    tem += json {
-                                        "text" to c.substring(1)
+                                    tem += buildJsonObject {
+                                        put("text", c.substring(1))
                                     }
                                 }
                             }
                             rmPre = false
                         } else {
-                            tem += json {
-                                "text" to c
+                            tem += buildJsonObject {
+                                put("text", c)
                             }
                         }
                     }
@@ -298,16 +298,16 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
                     )
                     m is Image -> {
                         val imageUrl = m.queryUrl()
-                        tem += json {
-                            "text" to c
-                            "underlined" to true
-                            "clickEvent" to json {
-                                "action" to "open_url"
-                                "value" to imageUrl
+                        tem += buildJsonObject {
+                            put("text", c)
+                            put("underlined", true)
+                            putJsonObject("clickEvent") {
+                                put("action", "open_url")
+                                put("value", imageUrl)
                             }
-                            "hoverEvent" to json {
-                                "action" to "show_text"
-                                "contents" to "点击查看图片"
+                            putJsonObject("hoverEvent") {
+                                put("action", "show_text")
+                                put("contents", "点击查看图片")
                             }
                         }
                     }

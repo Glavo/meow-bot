@@ -1,10 +1,10 @@
 package org.glavo.bot.data
 
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.content
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
-@Suppress("EXPERIMENTAL_API_USAGE")
 val Advancements: Map<String, String> =
-    Json.parseJson(Config::class.java.getResource("Advancements.json").readText())
+    Json.parseToJsonElement(Config::class.java.getResource("Advancements.json").readText())
         .jsonObject
-        .mapValues { (_, value) -> value.content }
+        .mapValues { (_, value) -> value.jsonPrimitive.content }

@@ -17,14 +17,14 @@ data class Player(
                 System.err.println("PlayerList.json 缺失")
                 exitProcess(-1)
             }
-            Json.parseJson(pl.readText())
+            Json.parseToJsonElement(pl.readText())
                 .jsonArray
                 .map { e ->
                     val obj = e.jsonObject
 
-                    val qq = obj["qq"]!!.long
-                    val names = obj["names"]?.jsonArray?.map { it.content } ?: emptyList()
-                    val nicknames = obj["nicknames"]?.jsonArray?.map { it.content } ?: emptyList()
+                    val qq = obj["qq"]!!.jsonPrimitive.long
+                    val names = obj["names"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+                    val nicknames = obj["nicknames"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
                     val permissions = run {
                         when (val p = obj["permission"]) {
                             null -> {
@@ -34,7 +34,7 @@ data class Player(
                                 Permission.ofLevel(p.content)
                             }
                             is JsonObject -> {
-                                @Suppress("CanBeVal") var permissions = Permission.ofLevel(p["level"]?.content) //TODO
+                                @Suppress("CanBeVal") var permissions = Permission.ofLevel(p["level"]?.jsonPrimitive?.content) //TODO
                                 permissions
                             }
                             else -> {

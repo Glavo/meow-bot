@@ -32,7 +32,6 @@ suspend fun main() {
             Config.MainGroupID, Config.CommandGroupID -> {
                 val m = message
                 val c = m.content
-
                 if (Command.All.firstOrNull { it.invoke(event, m, c) } == null
                     && c.startsWith('#')
                     && m[QuoteReply] == null
