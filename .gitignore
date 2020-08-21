@@ -1,0 +1,6 @@
+build/
+.idea/
+.gradle/
+.vscode/
+!src/main/resources/org/glavo/bot/data/Advancements.json
+src/main/resources

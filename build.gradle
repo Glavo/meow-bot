@@ -1,0 +1,57 @@
+buildscript {
+    ext.kotlinVersion = '1.3.72'
+
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+group 'org.glavo'
+version '1.0'
+
+application {
+    mainClassName = 'org.glavo.bot.MainKt'
+}
+
+repositories {
+    maven { url 'https://maven.aliyun.com/repository/jcenter' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+}
+
+dependencies {
+    implementation group: 'org.glavo', name: 'rcon-java', version: '2.0.1'
+    implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlinVersion
+    implementation group: 'net.mamoe', name: 'mirai-core-qqandroid', version: '1.1.3'
+}
+
+compileJava {
+    sourceCompatibility = 11
+    targetCompatibility = 11
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'org.glavo.bot.MainKt',
+                'Class-Path': 'lib/*'
+        )
+    }
+}
+
+task copyJars(type: Copy, dependsOn: jar) {
+    from configurations.runtimeClasspath
+    into "$buildDir/libs/lib"
+}
