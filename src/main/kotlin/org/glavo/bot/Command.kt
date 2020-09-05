@@ -39,7 +39,6 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
             }
             return true
         }
-
     },
     Ban(level = 3) {
         private val command = "#ban "
@@ -101,31 +100,69 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
             }
             return true
         }
-
     },
     Donate("#donate", action = {
         MainGroup.sendMessage("捐赠支持服务器请查看：https://donate.glavo.org/")
     }),
     Live("#live", action = {
         MainGroup.sendMessage("服务器开始直播了：https://live.bilibili.com/331537")
-        evalCommand("tellraw @a " + buildJsonArray {
-            addJsonObject {
-                put("text", "")
-                put("color", "gray")
-            }
-
-            add("服务器开始直播了，")
-            addJsonObject {
-                put("text", "点击这里进入直播间")
-                put("underlined", true)
-                putJsonObject("clickEvent") {
-                    put("action", "open_url")
-                    put("value", "https://live.bilibili.com/331537")
-                }
-            }
-            add("。")
-        })
     }),
+
+    //region Chat
+    Chat("#chat", action = {
+        it.quoteReply(
+            "连续聊天模式：当用户在此模式之下时，其在群内发言会被默认转发至服务器中（以“;;”开头的消息，以及以“#”开头的命令不会被转发）。\n" +
+                    "使用方法：\n" +
+                    "    发送“#chat on”命令进入连续聊天模式；\n" +
+                    "    发送“#chat off”命令退出连续聊天模式。\n" +
+                    "    发送“#chat status”命令查询当前是否在连续聊天模式下；\n" +
+                    "    发送“#chat list”命令查看所有处于连续聊天模式下的用户。"
+        )
+    }),
+    ChatOn("#chat on", action = {
+        if (ChatList.add(it.sender.id)) {
+            it.quoteReply("已进入连续聊天模式")
+        } else {
+            it.quoteReply("您已处于连续聊天模式下")
+        }
+    }),
+    ChatOff("#chat off", action = {
+        if (ChatList.remove(it.sender.id)) {
+            it.quoteReply("已退出连续聊天模式")
+        } else {
+            it.quoteReply("您不处于连续聊天模式下")
+        }
+    }),
+    ChatStatus("#chat status", action = {
+        if (it.sender.id in ChatList) {
+            it.quoteReply("您当前处于连续聊天模式下")
+        } else {
+            it.quoteReply("您当前不处于连续聊天模式下")
+        }
+    }),
+    ChatListAll("#chat list", action = {
+        val l = ChatList.list
+        if (l.isEmpty()) {
+            it.quoteReply("当前没有用户处于连续聊天模式")
+        } else {
+            it.quoteReply(l.joinToString(separator = "\n", prefix = "当前处于连续聊天模式的用户：\n") { qq ->
+                Player[qq]?.let { p ->
+                    val name = p.names.firstOrNull()
+                    if (name != null) {
+                        return@joinToString "    $name"
+                    }
+                }
+                MainGroup.getOrNull(qq)?.let { member ->
+                    return@joinToString "    " + member.nameCardOrNick
+                }
+
+                "    $qq"
+            })
+        }
+    }),
+
+    //endregion
+
     Spectate(level = 1) {
         private val command = "#sp"
         override suspend fun invoke(event: MessageEvent, message: MessageChain, content: String): Boolean {
@@ -187,59 +224,20 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
         }
 
     },
-
     Forward {
         override suspend fun invoke(event: MessageEvent, message: MessageChain, content: String): Boolean {
-            val qr = message[QuoteReply]
-            val mc = if (qr == null) {
-                if (!content.startsWith('>') && !content.startsWith('＞')) return false
-                message
-            } else {
-                val tem = arrayListOf<Message>()
-                var rmAt = true
-                var rmSpace = false
-
-                for (m in message) {
-                    when (m) {
-                        !is MessageContent -> {
-                        }
-                        is At -> {
-                            if (rmAt && m.target == qr.source.fromId) {
-                                rmAt = false
-                                rmSpace = true
-                            } else {
-                                tem += m
-                            }
-                        }
-                        is PlainText -> {
-                            if (m.content.isNotEmpty()) {
-                                if (rmSpace) {
-                                    if (m.content.startsWith(' ')) {
-                                        if (m.content.length > 1) {
-                                            tem += PlainText(m.content.substring(1))
-                                        }
-                                    } else {
-                                        tem += m
-                                    }
-                                    rmSpace = false
-                                } else {
-                                    tem += m
-                                }
-                            }
-                        }
-                        else -> tem += m
+            var rmPre = true
+            if (!content.startsWith('>') && !content.startsWith('＞')) {
+                if (event.sender.id in ChatList) {
+                    if (content.startsWith('#') || content.startsWith(";;") || content.startsWith("；；")) {
+                        return false
                     }
-                }
-                val mc = tem.asMessageChain()
-                if (mc.firstOrNull().let {
-                        it == null || it !is PlainText || !(it.content.startsWith('>') || it.content.startsWith('＞'))
-                    }) {
+                    rmPre = false
+                } else {
                     return false
                 }
-                mc
             }
 
-            var rmPre = true
             val tem = mutableListOf<JsonElement>()
 
             val player = Player[event.sender.id]
@@ -273,7 +271,7 @@ enum class Command(val level: Int = Permission.DefaultLevel) {
             tem += JsonPrimitive(" ")
 
             loop@
-            for (m in mc) {
+            for (m in message) {
                 val c = m.content
                 when {
                     c.isEmpty() -> continue@loop

@@ -3,6 +3,7 @@
 package org.glavo.bot.data
 
 import kotlinx.serialization.json.*
+import java.io.File
 import java.net.NetworkInterface
 import java.nio.charset.StandardCharsets
 import java.util.*
@@ -10,8 +11,8 @@ import kotlin.system.exitProcess
 
 object Config {
     private val config: JsonObject = run {
-        val cj = Config::class.java.getResource("Config.json")
-        if (cj == null) {
+        val cj = File("Config.json")
+        if (!cj.exists()) {
             System.err.println("Config.json 缺失")
             exitProcess(-1)
         }

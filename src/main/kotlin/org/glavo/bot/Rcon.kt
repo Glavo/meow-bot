@@ -11,16 +11,19 @@ private var rcon: Rcon? = null
 private val o = Object()
 
 object Patterns {
-    val IncorrectArgPattern: Pattern = Pattern.compile(
-        "^Incorrect argument for command(.*)<--\\[HERE]$"
-    )
+    const val IncorrectArgStart = "Incorrect argument for command"
+    const val UnknownCommandStart = "Unknown or incomplete command, see below for error"
+    const val HereEnd = "<--[HERE]"
+    const val HereEndLength = HereEnd.length
 
-    val UnknownCommandPattern: Pattern = Pattern.compile(
-        "^Unknown or incomplete command, see below for error(.*)<--\\[HERE]$"
-    )
+    const val IncorrectArgOffset = IncorrectArgStart.length
+    const val UnknownCommandOffset = UnknownCommandStart.length
+
+    const val IncorrectArgMinLength = IncorrectArgOffset + HereEndLength
+    const val UnknownCommandMinLength = UnknownCommandOffset + HereEndLength
 
     val listPattern: Pattern = Pattern.compile(
-        "^There are ([0-9]+) of a max of ([0-9]+) players online: ([^, ]+(, [^, ]+)*)?"
+        "^There are ([0-9]+) of a max of ([0-9]+) players online: ($NamePattern(, $NamePattern)*)?"
     )
 
     val gamerulePattern: Pattern = Pattern.compile(
@@ -29,6 +32,18 @@ object Patterns {
 
     val gameruleSetPattern: Pattern = Pattern.compile(
         "^Gamerule (\\p{Alpha}+) is now set to: (.+)"
+    )
+
+    val whitelistAddPattern: Pattern = Pattern.compile(
+        "^Added (?<name>$NamePattern) to the whitelist"
+    )
+
+    val whitelistRemovePattern: Pattern = Pattern.compile(
+        "^Removed (?<name>$NamePattern) from the whitelist$"
+    )
+
+    val givePattern: Pattern = Pattern.compile(
+        "Gave (?<count>[0-9]+) \\[(?<item>[^]]+)] to (?<target>.*)"
     )
 }
 
@@ -63,41 +78,84 @@ fun evalCommand(command: String): String {
     if (ans.isEmpty()) {
         return "（无结果）"
     } else {
-        var ma = Patterns.IncorrectArgPattern.matcher(ans)
-        if (ma.matches()) {
-            return "错误的命令参数：${ma.group(1)} <--此处"
+        val length = ans.length
 
+        if (length >= Patterns.IncorrectArgMinLength
+            && ans.startsWith(Patterns.IncorrectArgStart)
+            && ans.endsWith(Patterns.HereEnd)
+        ) {
+            return "错误的命令参数：${ans.substring(Patterns.IncorrectArgOffset, length - Patterns.HereEndLength)} <--此处"
         }
-        ma = Patterns.UnknownCommandPattern.matcher(ans)
-        if (ma.matches()) {
-            return "未知或不完整的命令：${ma.group(1)}"
 
+        if (length >= Patterns.UnknownCommandMinLength
+            && ans.startsWith(Patterns.UnknownCommandStart)
+            && ans.endsWith(Patterns.HereEnd)
+        ) {
+            return "未知或不完整的命令：${ans.substring(Patterns.UnknownCommandOffset, length - Patterns.HereEndLength)}"
         }
 
         when {
             command == "list" -> {
-                val m = Patterns.listPattern.matcher(ans)
-                return if (m.matches()) {
+                Patterns.listPattern.tryMatch(ans) { m ->
                     val n = m.group(1)
-                    if (n == "0") {
-                        ("当前没有玩家在服务器中")
-
+                    return if (n == "0") {
+                        "当前没有玩家在服务器中"
                     } else {
-                        (m.group(3).split(',')
-                            .joinToString("\n", "当前有 $n 个玩家在服务器中：\n") { "   " + it.trim() })
+                        m.group(3).split(',')
+                            .joinToString("\n", "当前有 $n 个玩家在服务器中：\n") { "    " + it.trim() }
                     }
-                } else {
-                    ans
                 }
+                return ans
+
             }
             command.startsWith("gamerule ") -> {
-                var m = Patterns.gamerulePattern.matcher(ans)
-                if (m.matches()) {
-                    return ("游戏规则 ${m.group(1)} 目前为 ${m.group(2)}")
+                Patterns.gamerulePattern.tryMatch(ans) {
+                    return "游戏规则 ${it.group(1)} 目前为 ${it.group(2)}"
                 }
-                m = Patterns.gameruleSetPattern.matcher(ans)
-                if (m.matches()) {
-                    return ("游戏规则 ${m.group(1)} 被设置为 ${m.group(2)}")
+                Patterns.gameruleSetPattern.tryMatch(ans) {
+                    return "游戏规则 ${it.group(1)} 被设置为 ${it.group(2)}"
+                }
+                return ans
+            }
+            command.startsWith("whitelist add ") -> {
+                if (ans == "That player does not exist") {
+                    return "该玩家不存在"
+                }
+                if (ans == "Player is already whitelisted") {
+                    return "玩家已在白名单中"
+                }
+                Patterns.whitelistAddPattern.tryMatch(ans) {
+                    "已将 ${it.group("name")} 加入白名单"
+                }
+                return ans
+            }
+            command.startsWith("whitelist remove ") -> {
+                if (ans == "That player does not exist") {
+                    return "该玩家不存在"
+                }
+                if (ans == "Player is not whitelisted") {
+                    return "玩家不在白名单内"
+                }
+
+                Patterns.whitelistRemovePattern.tryMatch(ans) {
+                    return "已将 ${it.group("name")} 移出白名单"
+                }
+                return ans
+            }
+            command.startsWith("give ") -> {
+                if (ans == "No player was found") {
+                    return "未找到玩家"
+                }
+                Patterns.givePattern.tryMatch(ans) {
+                    val target = it.group("target").toIntOrNull().let { t ->
+                        if (t == null) {
+                            it.group("target")
+                        } else {
+                            "$t 个目标"
+                        }
+
+                    }
+                    return "已将 ${it.group("count")} 个「${it.group("item")}」给予 $target"
                 }
                 return ans
             }
@@ -112,7 +170,7 @@ fun evalCommands(vararg commands: String): String {
         1 -> return evalCommand(commands[0])
     }
 
-    return commands.joinToString("\n ") { evalCommand(it) }
+    return commands.joinToString("\n") { evalCommand(it) }
 }
 
 

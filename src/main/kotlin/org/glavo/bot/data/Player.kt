@@ -1,6 +1,7 @@
 package org.glavo.bot.data
 
 import kotlinx.serialization.json.*
+import java.io.File
 import kotlin.system.exitProcess
 
 @Suppress("EXPERIMENTAL_API_USAGE")
@@ -12,8 +13,8 @@ data class Player(
 ) {
     companion object {
         val All: List<Player> = run {
-            val pl = Player::class.java.getResource("PlayerList.json")
-            if (pl == null) {
+            val pl = File("PlayerList.json")
+            if (!pl.exists()) {
                 System.err.println("PlayerList.json 缺失")
                 exitProcess(-1)
             }
@@ -34,7 +35,8 @@ data class Player(
                                 Permission.ofLevel(p.content)
                             }
                             is JsonObject -> {
-                                @Suppress("CanBeVal") var permissions = Permission.ofLevel(p["level"]?.jsonPrimitive?.content) //TODO
+                                @Suppress("CanBeVal") var permissions =
+                                    Permission.ofLevel(p["level"]?.jsonPrimitive?.content) //TODO
                                 permissions
                             }
                             else -> {
@@ -50,6 +52,21 @@ data class Player(
 
         operator fun get(qq: Long): Player? {
             return All.binarySearchBy(qq) { it.qq }.let { if (it >= 0) All[it] else null }
+        }
+
+        fun search(name: String): Player? {
+            Player.All.firstOrNull { it.names.contains(name) }?.let {
+                return it
+            }
+            Player.All.firstOrNull { it.nicknames.contains(name) }?.let {
+                return it
+            }
+            name.toLongOrNull()?.let { qq ->
+                Player.All.firstOrNull { it.qq == qq }?.let {
+                    return it
+                }
+            }
+            return null
         }
     }
 

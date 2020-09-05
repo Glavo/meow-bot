@@ -1,45 +1,25 @@
-@file:Suppress("BlockingMethodInNonBlockingContext", "EXPERIMENTAL_API_USAGE")
+@file:Suppress(
+    "BlockingMethodInNonBlockingContext", "EXPERIMENTAL_API_USAGE", "NOTHING_TO_INLINE",
+    "RemoveRedundantQualifierName"
+)
 
 package org.glavo.bot
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import net.mamoe.mirai.message.data.EmptyMessageChain
-import net.mamoe.mirai.message.data.Message
-import net.mamoe.mirai.message.data.PlainText
-import net.mamoe.mirai.message.data.at
+import net.mamoe.mirai.message.data.*
 import org.glavo.bot.data.Advancements
 import org.glavo.bot.data.Player
 import org.intellij.lang.annotations.Language
 import java.io.BufferedReader
 import java.io.File
 import java.lang.Exception
+import java.util.*
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
-@Language("RegExp")
-const val NamePattern = "[a-zA-Z0-9_]+"
-
-private val AtPattern: Pattern = Pattern.compile(
-    "@(?<name>\\p{javaJavaIdentifierPart}+)"
-)
-
-private class LogMatcherBuilder {
-    private val list = arrayListOf<Pair<Pattern, suspend (Matcher) -> Unit>>()
-
-    fun match(@Language("RegExp") pattern: String, action: suspend (Matcher) -> Unit) {
-        list += Pattern.compile(
-            "^\\[(?<time>\\p{Digit}{2}:\\p{Digit}{2}:\\p{Digit}{2})] \\[Server thread/INFO]: $pattern$"
-        ) to action
-    }
-
-    fun build(): List<Pair<Pattern, suspend (Matcher) -> Unit>> = list
-}
-
-private inline fun buildLogMatcher(action: LogMatcherBuilder.() -> Unit) = LogMatcherBuilder().apply(action).build()
-
-private val LogMatcher = buildLogMatcher {
+private val logMatcher = LogMatcher.build {
     match("(?<name>$NamePattern) joined the game") {
         val name = it.group("name")
         val m = PlainText("$name 进入服务器")
@@ -60,7 +40,7 @@ private val LogMatcher = buildLogMatcher {
 
     match("<(?<name>$NamePattern)> (?<info>.*)") { m1 ->
         val name = m1.group("name")
-        val info = m1.group("info")
+        val info = m1.group("info")!!
 
         if (!info.startsWith(";;") && !info.startsWith("；；")) {
             val group = MainGroup
@@ -131,7 +111,25 @@ private val LogMatcher = buildLogMatcher {
         val adv = m.group("adv").let { Advancements[it] ?: it }
         MainGroup.sendMessage("${m.group("name")} 达成了目标「$adv」")
     }
+
+    val names: MutableSet<String> = Collections.synchronizedSet(hashSetOf())
+
+    match(
+        "com.mojang.authlib.GameProfile@[0-9a-f]+\\[id=<null>,name=(?<name>$NamePattern),properties=\\{},legacy=false] \\([^)]*\\) lost connection: Disconnected"
+    ) { m ->
+        val name = m.group("name")!!
+        if (names.add(name)) {
+            val group = MainGroup
+
+            val a = Player.All.firstOrNull { it.names.contains(name) }
+                ?.let { group.getOrNull(it.qq)?.at() }
+                ?: PlainText("@$name ")
+
+            group.sendMessage(a + "登录服务器时如果提示“登录失败：无效会话”，请退出游戏，在启动器内删除账号并重新登录")
+        }
+    }
 }
+
 
 private class SteamClosed : Throwable() {
     override fun fillInStackTrace(): Throwable = this
@@ -141,9 +139,7 @@ suspend fun monitorServer() {
     GlobalScope.launch {
         var reader: BufferedReader? = File("/tmp/mc").bufferedReader()
 
-        Runtime.getRuntime().addShutdownHook(Thread {
-            reader?.close()
-        })
+        Runtime.getRuntime().addShutdownHook(Thread { reader?.close() })
 
         while (true) {
             try {
@@ -151,14 +147,7 @@ suspend fun monitorServer() {
                     ?: throw SteamClosed()
                 bot.logger.info("[Minecraft] $str")
 
-                for ((p, a) in LogMatcher) {
-                    val m = p.matcher(str)
-                    if(m.matches()) {
-                        a(m)
-                        break
-                    }
-                }
-
+                logMatcher.match(str)
             } catch (ex: SteamClosed) {
                 bot.logger.warning("FIFO File Closed")
                 delay(1000)
@@ -174,5 +163,54 @@ suspend fun monitorServer() {
                 bot.logger.warning(ex)
             }
         }
+    }
+}
+
+@Language("RegExp")
+const val NamePattern = "[a-zA-Z0-9_]+"
+
+private val AtPattern: Pattern = Pattern.compile(
+    "@(?<name>\\p{javaJavaIdentifierPart}+)"
+)
+
+class LogMatcher(private val ms: List<Pair<Pattern, suspend (LogMatcher.Result) -> Unit>>) {
+    class Builder {
+        private val list = arrayListOf<Pair<Pattern, suspend (LogMatcher.Result) -> Unit>>()
+
+        fun match(@Language("RegExp") pattern: String, action: suspend (LogMatcher.Result) -> Unit) {
+            list += Pattern.compile(pattern) to action
+        }
+
+        fun build(): LogMatcher = LogMatcher(list)
+    }
+
+    class Result(val time: String, val matcher: Matcher) {
+        inline fun group(group: Int): String? = matcher.group(group)
+        inline fun group(group: String): String? = matcher.group(group)
+    }
+
+    suspend fun match(log: String) {
+        if (log.length <= 33) return
+        if (log[0] != '[') return
+        if (log[9] != ']') return
+        val time = log.substring(1, 9)
+        if (!log.startsWith(InfoStr, 10)) {
+            return
+        }
+        val str = log.substring(33)
+
+        for (m in ms) {
+            val matcher = m.first.matcher(str)
+            if (matcher.matches()) {
+                m.second.invoke(Result(time, matcher))
+                return
+            }
+        }
+    }
+
+    companion object {
+        private const val InfoStr = " [Server thread/INFO]: "
+
+        inline fun build(action: LogMatcher.Builder.() -> Unit) = LogMatcher.Builder().apply(action).build()
     }
 }
